@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Gastos Recurrentes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .modal-active { overflow: hidden; }
+        .glass-effect { backdrop-filter: blur(8px); background-color: rgba(15, 23, 42, 0.7); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 pb-20">
+
+    <!-- Header -->
+    <header class="bg-white border-b sticky top-0 z-10 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">Gestor de Gastos</h1>
+                <span id="syncIndicator" class="hidden ml-2 px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full tracking-widest flex items-center gap-1">
+                    <i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i> Guardando
+                </span>
+            </div>
+            <button onclick="toggleModal('newExpenseModal', true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-all shadow-md active:scale-95 text-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Nuevo Servicio</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-8">
+        <!-- Panel de Alertas y Resumen -->
+        <div id="statsPanel" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <!-- Cargado dinámicamente -->
+        </div>
+
+        <!-- Lista de Servicios -->
+        <div id="expensesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Cargado dinámicamente -->
+        </div>
+    </main>
+
+    <!-- MODAL: NUEVO SERVICIO -->
+    <div id="newExpenseModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
+            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tighter">Nuevo Servicio</h2>
+                <button onclick="toggleModal('newExpenseModal', false)" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x"></i></button>
+            </div>
+            <form id="newExpenseForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Nombre</label>
+                    <input required id="name" type="text" placeholder="Ej: Internet Fiber" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Monto Base</label>
+                        <input required id="amount" type="number" step="0.01" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Día de Pago</label>
+                        <input required id="dueDay" type="number" min="1" max="31" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Categoría</label>
+                        <select id="icon" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white font-bold">
+                            <option value="zap">Luz</option>
+                            <option value="droplets">Agua</option>
+                            <option value="wifi">Internet</option>
+                            <option value="tv">Streaming</option>
+                            <option value="plus-circle">Otro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Meses Transcurridos</label>
+                        <input required id="paidMonths" type="number" min="0" value="0" placeholder="Ej: 10" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-slate-100">
+                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Total Histórico Pagado (S/) (Opcional)</label>
+                    <input id="historicalTotal" type="number" step="0.01" placeholder="Ej: 1500.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    <p class="text-[9px] text-slate-400 mt-1">Suma de lo que ya pagaste para tus registros.</p>
+                </div>
+                <button type="submit" class="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm shadow-lg">Guardar Servicio</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR SERVICIO -->
+    <div id="editExpenseModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
+            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tighter">Editar Servicio</h2>
+                <button onclick="toggleModal('editExpenseModal', false)" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x"></i></button>
+            </div>
+            <form id="editExpenseForm" class="p-6 space-y-4">
+                <input type="hidden" id="editId">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Nombre</label>
+                    <input required id="editName" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Monto Base</label>
+                        <input required id="editAmount" type="number" step="0.01" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Día de Pago</label>
+                        <input required id="editDueDay" type="number" min="1" max="31" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Categoría</label>
+                        <select id="editIcon" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white font-bold">
+                            <option value="zap">Luz</option>
+                            <option value="droplets">Agua</option>
+                            <option value="wifi">Internet</option>
+                            <option value="tv">Streaming</option>
+                            <option value="plus-circle">Otro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Meses Transcurridos</label>
+                        <input required id="editPaidMonths" type="number" min="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm shadow-lg">Actualizar Cambios</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR PAGO -->
+    <div id="paymentModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
+        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b bg-indigo-600 text-white flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-black">Registrar Pago</h2>
+                    <p id="paymentSubTitle" class="text-[10px] opacity-80 uppercase font-bold tracking-wider">Servicio - Mes X</p>
+                </div>
+                <button onclick="toggleModal('paymentModal', false)" class="p-2 hover:bg-white/10 rounded-full"><i data-lucide="x"></i></button>
+            </div>
+            <form id="paymentForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest text-center">Monto Real Pagado</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300">S/</span>
+                        <input required id="payAmount" type="number" step="0.01" class="w-full pl-10 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-2xl text-center">
+                    </div>
+                </div>
+                <div>
+                    <input required id="payDate" type="date" class="w-full px-4 py-3 rounded-2xl border border-slate-200 font-bold">
+                </div>
+                <div class="relative">
+                    <i data-lucide="building-2" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                    <input required id="payBank" type="text" placeholder="¿Desde qué banco pagaste?" class="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 font-medium">
+                </div>
+                <button type="submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 uppercase tracking-widest text-sm">Confirmar Pago</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTORIAL -->
+    <div id="historyModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 glass-effect">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b bg-indigo-50/50 flex justify-between items-center">
+                <div>
+                    <h2 id="historyTitle" class="text-lg font-black text-slate-800">Historial</h2>
+                    <p class="text-[10px] text-slate-500 uppercase font-black">Pagos Registrados</p>
+                </div>
+                <button onclick="toggleModal('historyModal', false)" class="bg-white text-slate-400 hover:text-slate-600 p-2 rounded-full shadow-sm"><i data-lucide="x"></i></button>
+            </div>
+            <div id="historyList" class="p-6 max-h-[50vh] overflow-y-auto space-y-3">
+                <!-- Cargado dinámicamente -->
+            </div>
+            <div class="p-4 border-t bg-slate-50">
+                <button onclick="toggleModal('historyModal', false)" class="w-full py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMACIÓN PERSONALIZADA -->
+    <div id="confirmModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center p-4 glass-effect">
+        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-150">
+            <div class="p-6 text-center space-y-4">
+                <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                </div>
+                <h2 id="confirmTitle" class="text-xl font-black text-slate-800">¿Estás seguro?</h2>
+                <p id="confirmMessage" class="text-sm text-slate-500 font-medium">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="p-4 bg-slate-50 border-t flex gap-3">
+                <button onclick="closeConfirm()" class="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                <button onclick="executeConfirm()" class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-all active:scale-95">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE NOTIFICACIONES (TOASTS) -->
+    <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- CONFIGURACIÓN DE GOOGLE SHEETS ---
+        // 1. PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyF4IRodJ1G72_wBnlQcBJwxHDGLNd4O0t_-dVeODpcN3-LGx9nEsDreNUmO9HeGyuKww/exec'; 
+
+        // --- ESTADO INICIAL ---
+        let expenses = [];
+        let isSyncing = false;
+        let selectedExpenseId = null;
+
+        // --- SISTEMA DE ALERTAS Y NOTIFICACIONES PROPIAS ---
+        let confirmCallback = null;
+
+        function openConfirm(title, message, callback) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            confirmCallback = callback;
+            toggleModal('confirmModal', true);
+        }
+
+        function closeConfirm() {
+            toggleModal('confirmModal', false);
+            confirmCallback = null;
+        }
+
+        function executeConfirm() {
+            if (confirmCallback) confirmCallback();
+            closeConfirm();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            const isError = type === 'error';
+            toast.className = `px-4 py-3 rounded-2xl shadow-xl font-bold text-sm flex items-center gap-2 transform transition-all translate-y-10 opacity-0 pointer-events-auto ${isError ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'}`;
+            toast.innerHTML = `<i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-4 h-4"></i> ${message}`;
+            
+            document.getElementById('toastContainer').appendChild(toast);
+            lucide.createIcons();
+
+            // Animación de entrada
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+
+            // Animación de salida y eliminación
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- FUNCIONES DE NUBE (GOOGLE SHEETS) ---
+        async function loadFromCloud() {
+            if (!SCRIPT_URL) return false;
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const data = await response.json();
+                if (Array.isArray(data)) expenses = data;
+                return true;
+            } catch (error) {
+                console.error("Error cargando de Sheets:", error);
+                return false;
+            }
+        }
+
+        async function saveToCloud() {
+            if (!SCRIPT_URL) return;
+            isSyncing = true;
+            renderApp(); 
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(expenses),
+                    headers: { 'Content-Type': 'text/plain' } // Evita problemas de CORS de Google
+                });
+            } catch (error) {
+                console.error("Error guardando en Sheets:", error);
+                showToast('Error al sincronizar con la nube', 'error');
+            } finally {
+                isSyncing = false;
+                renderApp();
+            }
+        }
+
+        // --- LÓGICA DE ALERTA Y TENDENCIA ---
+        function getPaymentStatus(expense) {
+            const today = new Date();
+            const currDay = today.getDate();
+            const currMonth = today.getMonth();
+            const currYear = today.getFullYear();
+
+            const paidThisMonth = expense.history.some(h => {
+                if (h.month === 'Migrado') return false; // Ignorar registros de migración para las alertas del mes
+                const payDate = new Date(h.date);
+                return payDate.getMonth() === currMonth && payDate.getFullYear() === currYear;
+            });
+
+            if (paidThisMonth) return { label: 'Pagado', color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: 'check-circle-2', type: 'paid' };
+
+            const due = parseInt(expense.dueDay);
+            if (currDay > due) {
+                return { label: 'Vencido', color: 'text-red-600 bg-red-50 border-red-100 animate-pulse', icon: 'alert-circle', type: 'overdue' };
+            } else if (due - currDay <= 3) {
+                return { label: 'Pagar pronto', color: 'text-amber-600 bg-amber-50 border-amber-100', icon: 'alert-triangle', type: 'urgent' };
+            } else {
+                return { label: 'Programado', color: 'text-blue-600 bg-blue-50 border-blue-100', icon: 'clock', type: 'pending' };
+            }
+        }
+
+        function getTrendData(expense) {
+            if (!expense.history || expense.history.length === 0) {
+                return { avg: parseFloat(expense.amount), trend: null };
+            }
+
+            let currentSum = 0;
+            let currentMonths = 0;
+            
+            expense.history.forEach(h => {
+                currentSum += h.amount;
+                // Si es un dato migrado, usamos los meses que representa, sino equivale a 1 mes
+                currentMonths += (h.representedMonths || 1);
+            });
+
+            const currentAvg = currentMonths > 0 ? currentSum / currentMonths : parseFloat(expense.amount);
+
+            // --- NUEVA TENDENCIA: MES A MES (Último vs Anterior) ---
+            let currentPayment = expense.history[0].amount;
+            if (expense.history[0].month === 'Migrado') {
+                currentPayment = currentPayment / (expense.history[0].representedMonths || 1);
+            }
+
+            let previousPayment = parseFloat(expense.amount); // Si solo hay 1 pago, comparamos contra el monto base inicial
+            if (expense.history.length > 1) {
+                previousPayment = expense.history[1].amount;
+                if (expense.history[1].month === 'Migrado') {
+                    previousPayment = previousPayment / (expense.history[1].representedMonths || 1);
+                }
+            }
+
+            const diff = currentPayment - previousPayment;
+            let trend = null;
+
+            if (previousPayment > 0) {
+                const percent = (diff / previousPayment) * 100;
+                if (diff > 0.5) { 
+                    trend = { icon: 'trending-up', color: 'text-red-600 bg-red-50', text: `+${percent.toFixed(1)}% mes ant.` };
+                } else if (diff < -0.5) {
+                    trend = { icon: 'trending-down', color: 'text-emerald-600 bg-emerald-50', text: `${percent.toFixed(1)}% mes ant.` };
+                } else {
+                    trend = { icon: 'minus', color: 'text-slate-500 bg-slate-50', text: 'Estable' };
+                }
+            }
+            
+            return { avg: currentAvg, trend: trend };
+        }
+
+        // --- RENDERIZADO ---
+        function renderApp() {
+            const grid = document.getElementById('expensesGrid');
+            const stats = document.getElementById('statsPanel');
+            const syncInd = document.getElementById('syncIndicator');
+            
+            if (syncInd) {
+                syncInd.classList.toggle('hidden', !isSyncing);
+            }
+
+            let total = 0;
+            let statusCounts = { overdue: 0, urgent: 0, paid: 0, pending: 0 };
+
+            grid.innerHTML = '';
+            
+            expenses.forEach(exp => {
+                const status = getPaymentStatus(exp);
+                const { avg, trend } = getTrendData(exp);
+                statusCounts[status.type]++;
+                total += avg;
+
+                let trendHtml = '';
+                if (trend) {
+                    trendHtml = `
+                    <div class="flex justify-end mt-1">
+                        <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold ${trend.color}">
+                            <i data-lucide="${trend.icon}" class="w-3 h-3"></i>
+                            ${trend.text}
+                        </span>
+                    </div>`;
+                }
+
+                const card = `
+                <div class="bg-white rounded-3xl shadow-sm border-2 overflow-hidden transition-all group ${status.type === 'overdue' ? 'border-red-100 bg-red-50/10' : 'border-transparent'}">
+                    <div class="p-6">
+                        <div class="flex justify-end mb-2">
+                            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${status.color}">
+                                <i data-lucide="${status.icon}" class="w-3 h-3"></i>
+                                ${status.label}
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-start mb-6">
+                            <div class="flex items-center gap-4">
+                                <div class="bg-slate-50 p-3 rounded-2xl group-hover:bg-white group-hover:shadow-sm transition-all text-slate-600">
+                                    <i data-lucide="${exp.icon === 'plus-circle' ? 'help-circle' : exp.icon}"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-lg text-slate-800">${exp.name}</h3>
+                                    <div class="flex items-center gap-1.5 text-slate-500 text-xs mt-1">
+                                        <i data-lucide="calendar" class="w-3 h-3"></i>
+                                        <span>Día ${exp.dueDay}</span>
+                                        <span class="mx-1">•</span>
+                                        <span class="font-bold text-indigo-600 uppercase text-[10px]">Mes ${exp.paidMonths}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] font-black text-slate-400 uppercase leading-none mb-1 tracking-widest">Promedio</p>
+                                <span class="text-xl font-black text-slate-900 block">S/ ${avg.toFixed(2)}</span>
+                                ${trendHtml}
+                                <div class="flex justify-end gap-1 mt-2">
+                                    <button onclick="openEdit(${exp.id})" class="text-slate-300 hover:text-indigo-500 p-1 transition-colors"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                                    <button onclick="deleteExpense(${exp.id})" class="text-slate-300 hover:text-red-500 p-1 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex flex-col gap-2 pt-2">
+                                <button onclick="openPayment(${exp.id})" ${status.type === 'paid' ? 'disabled' : ''} class="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all ${status.type === 'paid' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'}">
+                                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                    ${status.type === 'paid' ? 'Pagado este mes' : 'Registrar Pago'}
+                                </button>
+                                <button onclick="openHistory(${exp.id})" class="w-full bg-white hover:bg-slate-50 text-slate-600 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200">
+                                    <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+                                    Ver Historial de Pagos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                grid.innerHTML += card;
+            });
+
+            stats.innerHTML = `
+                <div class="md:col-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl shadow-lg text-white flex flex-col justify-center">
+                    <p class="opacity-80 text-[10px] font-black uppercase tracking-widest mb-1">Total Mensual</p>
+                    <p class="text-4xl font-black">S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-3">
+                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Estados</p>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs font-bold text-red-500"><span>Vencidos</span><span class="bg-red-50 px-2 py-0.5 rounded-full">${statusCounts.overdue}</span></div>
+                        <div class="flex justify-between items-center text-xs font-bold text-amber-500"><span>Pronto</span><span class="bg-amber-50 px-2 py-0.5 rounded-full">${statusCounts.urgent}</span></div>
+                        <div class="flex justify-between items-center text-xs font-bold text-emerald-500"><span>Pagados</span><span class="bg-emerald-50 px-2 py-0.5 rounded-full">${statusCounts.paid}</span></div>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center text-center">
+                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Servicios</p>
+                    <p class="text-3xl font-black text-indigo-600">${expenses.length}</p>
+                </div>
+            `;
+
+            lucide.createIcons();
+        }
+
+        // --- ACCIONES ---
+        function toggleModal(id, show) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden', !show);
+            document.body.classList.toggle('modal-active', show);
+        }
+
+        function deleteExpense(id) {
+            openConfirm('Eliminar Servicio', '¿Seguro que quieres eliminar este servicio por completo? Se perderá todo su historial.', () => {
+                expenses = expenses.filter(e => e.id !== id);
+                renderApp();
+                saveToCloud();
+                showToast('Servicio eliminado correctamente');
+            });
+        }
+
+        // Nuevo Servicio
+        document.getElementById('newExpenseForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const historicalTotal = parseFloat(document.getElementById('historicalTotal').value) || 0;
+            const initialMonths = parseInt(document.getElementById('paidMonths').value) || 0;
+            const historyData = [];
+            
+            if (historicalTotal > 0) {
+                historyData.push({
+                    month: 'Migrado',
+                    date: new Date().toISOString().split('T')[0],
+                    amount: historicalTotal,
+                    bank: 'Datos de Excel',
+                    representedMonths: initialMonths > 0 ? initialMonths : 1
+                });
+            }
+
+            const newExp = {
+                id: Date.now(),
+                name: document.getElementById('name').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                dueDay: document.getElementById('dueDay').value,
+                icon: document.getElementById('icon').value,
+                paidMonths: parseInt(document.getElementById('paidMonths').value) || 0,
+                history: historyData
+            };
+            expenses.push(newExp);
+            toggleModal('newExpenseModal', false);
+            document.getElementById('newExpenseForm').reset();
+            renderApp();
+            saveToCloud();
+            showToast('Nuevo servicio agregado');
+        });
+
+        // Abrir y Guardar Edición
+        function openEdit(id) {
+            const exp = expenses.find(e => e.id === id);
+            document.getElementById('editId').value = exp.id;
+            document.getElementById('editName').value = exp.name;
+            document.getElementById('editAmount').value = exp.amount;
+            document.getElementById('editDueDay').value = exp.dueDay;
+            document.getElementById('editIcon').value = exp.icon;
+            document.getElementById('editPaidMonths').value = exp.paidMonths;
+            toggleModal('editExpenseModal', true);
+        }
+
+        document.getElementById('editExpenseForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('editId').value);
+            const exp = expenses.find(e => e.id === id);
+            
+            exp.name = document.getElementById('editName').value;
+            exp.amount = parseFloat(document.getElementById('editAmount').value);
+            exp.dueDay = document.getElementById('editDueDay').value;
+            exp.icon = document.getElementById('editIcon').value;
+            exp.paidMonths = parseInt(document.getElementById('editPaidMonths').value);
+            
+            toggleModal('editExpenseModal', false);
+            renderApp();
+            saveToCloud();
+            showToast('Servicio actualizado correctamente');
+        });
+
+        // Abrir Registro Pago
+        function openPayment(id) {
+            selectedExpenseId = id;
+            const exp = expenses.find(e => e.id === id);
+            
+            const { avg } = getTrendData(exp);
+
+            document.getElementById('paymentSubTitle').innerText = `${exp.name} - Mes ${exp.paidMonths}`;
+            document.getElementById('payAmount').value = avg.toFixed(2);
+            document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('payBank').value = '';
+            toggleModal('paymentModal', true);
+        }
+
+        // Confirmar Pago
+        document.getElementById('paymentForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const exp = expenses.find(e => e.id === selectedExpenseId);
+            const entry = {
+                month: exp.paidMonths,
+                date: document.getElementById('payDate').value,
+                amount: parseFloat(document.getElementById('payAmount').value),
+                bank: document.getElementById('payBank').value
+            };
+            exp.history.unshift(entry);
+            exp.paidMonths++;
+            toggleModal('paymentModal', false);
+            renderApp();
+            saveToCloud();
+            showToast('Pago registrado con éxito');
+        });
+
+        // Eliminar Pago del Historial
+        function deletePayment(expenseId, historyIndex) {
+            openConfirm('Eliminar Pago', '¿Seguro que quieres eliminar este registro de pago de tu historial?', () => {
+                const exp = expenses.find(e => e.id === expenseId);
+                const payment = exp.history[historyIndex];
+
+                // Si no es un dato migrado, retrocedemos el contador de meses
+                if (payment.month !== 'Migrado' && exp.paidMonths > 0) {
+                    exp.paidMonths--;
+                }
+
+                // Eliminamos el registro
+                exp.history.splice(historyIndex, 1);
+                
+                renderApp();
+                saveToCloud();
+                showToast('Registro de pago eliminado');
+                
+                // Refrescamos o cerramos el modal
+                if (exp.history.length === 0) {
+                    toggleModal('historyModal', false);
+                } else {
+                    openHistory(expenseId);
+                }
+            });
+        }
+
+        // Historial
+        function openHistory(id) {
+            const exp = expenses.find(e => e.id === id);
+            const list = document.getElementById('historyList');
+            document.getElementById('historyTitle').innerText = `Historial: ${exp.name}`;
+            list.innerHTML = '';
+
+            if (exp.history.length === 0) {
+                list.innerHTML = '<div class="text-center py-10 text-slate-400 italic">No hay historial todavía.</div>';
+            } else {
+                exp.history.forEach((h, index) => {
+                    list.innerHTML += `
+                    <div class="flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 relative">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-indigo-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-sm">${h.month}</div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Fecha</p>
+                                    <p class="text-sm font-bold text-slate-700">${h.date.split('-').reverse().join('/')}</p>
+                                </div>
+                            </div>
+                            <div class="text-right flex items-center gap-3">
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Monto</p>
+                                    <p class="text-sm font-black text-emerald-600">S/ ${h.amount.toFixed(2)}</p>
+                                </div>
+                                <button onclick="deletePayment(${exp.id}, ${index})" class="text-slate-300 hover:text-red-500 p-2 bg-white rounded-full shadow-sm transition-colors border border-slate-100" title="Eliminar pago">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-200/50 flex items-center gap-2">
+                            <i data-lucide="building-2" class="w-3 h-3 text-slate-400"></i>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Medio:</span>
+                            <span class="text-[11px] font-bold text-indigo-600">${h.bank || '---'}</span>
+                        </div>
+                    </div>`;
+                });
+            }
+            toggleModal('historyModal', true);
+            lucide.createIcons();
+        }
+
+        // Inicio
+        window.onload = async () => {
+            if (SCRIPT_URL) {
+                document.getElementById('expensesGrid').innerHTML = '<div class="col-span-full py-20 text-center"><i data-lucide="refresh-cw" class="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4"></i><p class="text-slate-500 font-bold tracking-widest uppercase text-sm">Conectando con Google Sheets...</p></div>';
+                lucide.createIcons();
+                const loaded = await loadFromCloud();
+                if (!loaded && expenses.length === 0) {
+                     expenses = [ { id: 1, name: 'Servicio de Ejemplo', dueDay: 15, icon: 'zap', amount: 100.00, paidMonths: 1, history: [] } ];
+                }
+            } else {
+                // Estado inicial local de prueba (Muestra esto si aún no configuras SCRIPT_URL)
+                expenses = [
+                    { id: 1, name: 'Luz (Enel)', dueDay: 15, icon: 'zap', amount: 120.50, paidMonths: 3, history: [
+                        { month: 2, date: '2026-02-15', amount: 115.00, bank: 'BBVA' },
+                        { month: 1, date: '2026-01-15', amount: 110.00, bank: 'BCP' }
+                    ]},
+                    { id: 2, name: 'Agua (Sedapal)', dueDay: 10, icon: 'droplets', amount: 45.00, paidMonths: 2, history: [
+                        { month: 1, date: '2026-01-10', amount: 50.00, bank: 'Interbank' }
+                    ] }
+                ];
+            }
+            renderApp();
+        };
+    </script>
+</body>
+</html>
