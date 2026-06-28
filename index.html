@@ -3,675 +3,598 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Gastos Recurrentes</title>
+    <title>Limpiador de JSON y Cruce de Datos - Agencias</title>
+    <!-- Tailwind CSS para estilos rápidos y responsivos -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS para el Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- SheetJS para leer Excel/CSV sin necesidad de backend -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .modal-active { overflow: hidden; }
-        .glass-effect { backdrop-filter: blur(8px); background-color: rgba(15, 23, 42, 0.7); }
+        /* Personalización de la barra de desplazamiento (Scrollbar) */
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .table-container::-webkit-scrollbar { height: 8px; width: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f5f9; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        /* Estilos del contenedor del mapa */
+        #map { height: 400px; width: 100%; border-radius: 0.5rem; border: 1px solid #e2e8f0; z-index: 10; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-20">
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans p-4 md:p-8">
 
-    <!-- Header -->
-    <header class="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="bg-indigo-600 p-2 rounded-lg text-white">
-                    <i data-lucide="credit-card" class="w-5 h-5"></i>
+    <div class="max-w-7xl mx-auto space-y-8 relative">
+        <header class="text-center md:text-left border-b pb-4">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plataforma Logística: Agencias y Cruce de Masivos</h1>
+            <p class="text-slate-600">Paso 1: Limpia el JSON de agencias. Paso 2: Cruza tu Excel masivo para obtener tu JSON final de destinos.</p>
+        </header>
+
+        <!-- Alertas Flotantes -->
+        <div id="errorMsg" class="hidden p-4 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium transition-all fixed top-4 right-4 z-50 shadow-lg max-w-md"></div>
+        <div id="successMsg" class="hidden p-4 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium transition-all fixed top-4 right-4 z-50 shadow-lg max-w-md"></div>
+
+        <!-- SECCIÓN 1: Procesar JSON Base -->
+        <section class="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                Procesar JSON Base de Agencias
+            </h2>
+            
+            <div class="flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-semibold text-sm text-slate-700">JSON Crudo (Pega 'Copy Response' aquí) <span id="contadorAgencias" class="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hidden">0</span></label>
+                    <button onclick="limpiarEntrada()" class="text-xs text-slate-500 hover:text-red-500 transition-colors focus:outline-none font-medium">Limpiar Todo</button>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight">Gestor de Gastos</h1>
-                <span id="syncIndicator" class="hidden ml-2 px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full tracking-widest flex items-center gap-1">
-                    <i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i> Guardando
-                </span>
+                <textarea id="inputJson" class="w-full h-40 p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs font-mono resize-none" placeholder="Pega el arreglo JSON crudo aquí..."></textarea>
+                
+                <button onclick="procesarJSON()" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002 2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Procesar Datos
+                </button>
             </div>
-            <button onclick="toggleModal('newExpenseModal', true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-all shadow-md active:scale-95 text-sm">
-                <i data-lucide="plus" class="w-4 h-4"></i>
-                <span class="hidden sm:inline">Nuevo Servicio</span>
-            </button>
-        </div>
-    </header>
+            <!-- Visualizador JSON Limpio (Paso 1) -->
+            <textarea id="outputJson" class="hidden w-full h-48 mt-4 p-3 bg-slate-800 text-blue-300 rounded-lg text-xs font-mono resize-none border border-slate-700 shadow-inner" readonly></textarea>
+        </section>
 
-    <main class="max-w-5xl mx-auto px-4 py-8">
-        <!-- Panel de Alertas y Resumen -->
-        <div id="statsPanel" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <!-- Cargado dinámicamente -->
-        </div>
-
-        <!-- Lista de Servicios -->
-        <div id="expensesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Cargado dinámicamente -->
-        </div>
-    </main>
-
-    <!-- MODAL: NUEVO SERVICIO -->
-    <div id="newExpenseModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
-            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
-                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tighter">Nuevo Servicio</h2>
-                <button onclick="toggleModal('newExpenseModal', false)" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x"></i></button>
+        <!-- SECCIÓN 2: Cruce de Excel -->
+        <section class="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span class="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+                Cruce de Formato Masivo (Excel / CSV)
+            </h2>
+            
+            <div class="flex flex-col md:flex-row gap-4 items-end mb-6">
+                <div class="w-full md:w-2/3">
+                    <label class="block font-semibold text-sm text-slate-700 mb-2">Sube tu archivo "Formato-Pro-Masivo"</label>
+                    <input type="file" id="fileUpload" accept=".csv, .xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 border border-slate-300 rounded-lg cursor-pointer bg-slate-50 transition-all"/>
+                </div>
+                <button onclick="procesarExcel()" class="w-full md:w-1/3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex justify-center items-center gap-2 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                    Cruzar Datos
+                </button>
             </div>
-            <form id="newExpenseForm" class="p-6 space-y-4">
-                <div>
-                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Nombre</label>
-                    <input required id="name" type="text" placeholder="Ej: Internet Fiber" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Monto Base</label>
-                        <input required id="amount" type="number" step="0.01" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Día de Pago</label>
-                        <input required id="dueDay" type="number" min="1" max="31" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Categoría</label>
-                        <select id="icon" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white font-bold">
-                            <option value="zap">Luz</option>
-                            <option value="droplets">Agua</option>
-                            <option value="wifi">Internet</option>
-                            <option value="tv">Streaming</option>
-                            <option value="plus-circle">Otro</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Meses Transcurridos</label>
-                        <input required id="paidMonths" type="number" min="0" value="0" placeholder="Ej: 10" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
+
+            <!-- Resultados del Cruce -->
+            <div id="resultadosCruce" class="hidden space-y-6 mt-6">
+                <!-- Tabla No Match -->
+                <div id="containerNoMatch" class="hidden">
+                    <h3 class="text-red-600 font-bold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        Agencias NO Encontradas (<span id="countNoMatch">0</span>)
+                    </h3>
+                    <div class="table-container overflow-x-auto border border-red-200 rounded-lg shadow-sm">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-red-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left font-semibold text-red-800">Sede (Excel)</th>
+                                    <th class="px-4 py-3 text-left font-semibold text-red-800">Tipo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyNoMatch" class="bg-white divide-y divide-slate-200"></tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="pt-2 border-t border-slate-100">
-                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Total Histórico Pagado (S/) (Opcional)</label>
-                    <input id="historicalTotal" type="number" step="0.01" placeholder="Ej: 1500.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    <p class="text-[9px] text-slate-400 mt-1">Suma de lo que ya pagaste para tus registros.</p>
+
+                <!-- Tabla Match -->
+                <div id="containerMatch" class="hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+                        <h3 class="text-emerald-600 font-bold flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Agencias SÍ Encontradas (<span id="countMatch">0</span>)
+                        </h3>
+                        <div class="flex flex-wrap gap-2 text-xs font-medium">
+                            <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">Destino: <span id="countDestino">0</span></span>
+                            <span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full border border-blue-200">Origen: <span id="countOrigen">0</span></span>
+                            <span class="bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full border border-purple-200">Ambos: <span id="countAmbos">0</span></span>
+                        </div>
+                    </div>
+                    <div class="table-container overflow-x-auto border border-emerald-200 rounded-lg shadow-sm">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-emerald-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left font-semibold text-emerald-800">Sede (Excel)</th>
+                                    <th class="px-4 py-3 text-left font-semibold text-emerald-800">Tipo</th>
+                                    <th class="px-4 py-3 text-left font-semibold text-emerald-800">Match JSON</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMatch" class="bg-white divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
                 </div>
-                <button type="submit" class="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm shadow-lg">Guardar Servicio</button>
-            </form>
-        </div>
+            </div>
+
+            <!-- Sección de Exportación y Checkboxes -->
+            <div id="exportAction" class="mt-8 hidden flex flex-col gap-5 border-t border-slate-100 pt-6">
+                <div id="exportOptions" class="p-4 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                    <!-- Nuevos Filtros por Tipo -->
+                    <div class="mb-5 border-b border-slate-200 pb-4">
+                        <h4 class="font-semibold text-sm mb-3 text-slate-700">Filtrar por Tipo de Agencia:</h4>
+                        <div class="flex flex-wrap gap-3 text-sm font-medium">
+                            <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors">
+                                <input type="checkbox" value="Destino" checked class="filtro-tipo w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer" onchange="actualizarFiltros()"> 
+                                Solo Destino
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors">
+                                <input type="checkbox" value="Origen" checked class="filtro-tipo w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer" onchange="actualizarFiltros()"> 
+                                Solo Origen
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors">
+                                <input type="checkbox" value="Destino y Origen" checked class="filtro-tipo w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer" onchange="actualizarFiltros()"> 
+                                Ambos (Destino y Origen)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-semibold text-sm mb-3 text-slate-700">Campos a incluir en el JSON final:</h4>
+                        <!-- Contenedor dinámico de checkboxes -->
+                        <div id="checkboxContainer" class="flex flex-wrap gap-3 text-sm font-medium"></div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row justify-end gap-3">
+                    <button onclick="visualizarJSONDestinos()" class="border border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold py-2.5 px-5 rounded-lg transition-colors focus:ring-2 focus:ring-emerald-200">Visualizar JSON</button>
+                    <button onclick="descargarJSONDestinos()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-emerald-400">Descargar JSON</button>
+                    <button onclick="copiarJSONDestinos()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm focus:ring-2 focus:ring-blue-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Copiar al Portapapeles
+                    </button>
+                </div>
+                <textarea id="outputJsonDestinos" class="hidden w-full h-64 p-4 bg-slate-900 text-emerald-300 rounded-lg text-xs font-mono resize-none border border-slate-700 shadow-inner" readonly></textarea>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: Mapa -->
+        <section id="mapSection" class="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 hidden">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span class="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">3</span>
+                Mapa de Destinos Finales
+            </h2>
+            <div id="map" class="bg-slate-100 flex items-center justify-center text-slate-400 text-sm">Cargando mapa...</div>
+        </section>
     </div>
 
-    <!-- MODAL: EDITAR SERVICIO -->
-    <div id="editExpenseModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
-            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
-                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tighter">Editar Servicio</h2>
-                <button onclick="toggleModal('editExpenseModal', false)" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x"></i></button>
-            </div>
-            <form id="editExpenseForm" class="p-6 space-y-4">
-                <input type="hidden" id="editId">
-                <div>
-                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Nombre</label>
-                    <input required id="editName" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Monto Base</label>
-                        <input required id="editAmount" type="number" step="0.01" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Día de Pago</label>
-                        <input required id="editDueDay" type="number" min="1" max="31" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Categoría</label>
-                        <select id="editIcon" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white font-bold">
-                            <option value="zap">Luz</option>
-                            <option value="droplets">Agua</option>
-                            <option value="wifi">Internet</option>
-                            <option value="tv">Streaming</option>
-                            <option value="plus-circle">Otro</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Meses Transcurridos</label>
-                        <input required id="editPaidMonths" type="number" min="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold">
-                    </div>
-                </div>
-                <button type="submit" class="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm shadow-lg">Actualizar Cambios</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: REGISTRAR PAGO -->
-    <div id="paymentModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 glass-effect">
-        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
-            <div class="p-6 border-b bg-indigo-600 text-white flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg font-black">Registrar Pago</h2>
-                    <p id="paymentSubTitle" class="text-[10px] opacity-80 uppercase font-bold tracking-wider">Servicio - Mes X</p>
-                </div>
-                <button onclick="toggleModal('paymentModal', false)" class="p-2 hover:bg-white/10 rounded-full"><i data-lucide="x"></i></button>
-            </div>
-            <form id="paymentForm" class="p-6 space-y-4">
-                <div>
-                    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest text-center">Monto Real Pagado</label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300">S/</span>
-                        <input required id="payAmount" type="number" step="0.01" class="w-full pl-10 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-2xl text-center">
-                    </div>
-                </div>
-                <div>
-                    <input required id="payDate" type="date" class="w-full px-4 py-3 rounded-2xl border border-slate-200 font-bold">
-                </div>
-                <div class="relative">
-                    <i data-lucide="building-2" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
-                    <input required id="payBank" type="text" placeholder="¿Desde qué banco pagaste?" class="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 font-medium">
-                </div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 uppercase tracking-widest text-sm">Confirmar Pago</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: HISTORIAL -->
-    <div id="historyModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 glass-effect">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-            <div class="p-6 border-b bg-indigo-50/50 flex justify-between items-center">
-                <div>
-                    <h2 id="historyTitle" class="text-lg font-black text-slate-800">Historial</h2>
-                    <p class="text-[10px] text-slate-500 uppercase font-black">Pagos Registrados</p>
-                </div>
-                <button onclick="toggleModal('historyModal', false)" class="bg-white text-slate-400 hover:text-slate-600 p-2 rounded-full shadow-sm"><i data-lucide="x"></i></button>
-            </div>
-            <div id="historyList" class="p-6 max-h-[50vh] overflow-y-auto space-y-3">
-                <!-- Cargado dinámicamente -->
-            </div>
-            <div class="p-4 border-t bg-slate-50">
-                <button onclick="toggleModal('historyModal', false)" class="w-full py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: CONFIRMACIÓN PERSONALIZADA -->
-    <div id="confirmModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center p-4 glass-effect">
-        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-150">
-            <div class="p-6 text-center space-y-4">
-                <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i data-lucide="alert-triangle" class="w-8 h-8"></i>
-                </div>
-                <h2 id="confirmTitle" class="text-xl font-black text-slate-800">¿Estás seguro?</h2>
-                <p id="confirmMessage" class="text-sm text-slate-500 font-medium">Esta acción no se puede deshacer.</p>
-            </div>
-            <div class="p-4 bg-slate-50 border-t flex gap-3">
-                <button onclick="closeConfirm()" class="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
-                <button onclick="executeConfirm()" class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-all active:scale-95">Sí, eliminar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- CONTENEDOR DE NOTIFICACIONES (TOASTS) -->
-    <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] flex flex-col gap-2 pointer-events-none"></div>
-
+    <!-- Carga de Scripts de Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    
     <script>
-        // --- CONFIGURACIÓN DE GOOGLE SHEETS ---
-        // 1. PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyF4IRodJ1G72_wBnlQcBJwxHDGLNd4O0t_-dVeODpcN3-LGx9nEsDreNUmO9HeGyuKww/exec'; 
+        // Variables Globales
+        let map = null;
+        let markersGroup = null;
+        let agenciasGlobales = []; // Array que almacena datos limpios para cruce interno
+        let jsonDestinosFinal = []; // Array final del resultado tras cruzar con Excel
 
-        // --- ESTADO INICIAL ---
-        let expenses = [];
-        let isSyncing = false;
-        let selectedExpenseId = null;
-
-        // --- SISTEMA DE ALERTAS Y NOTIFICACIONES PROPIAS ---
-        let confirmCallback = null;
-
-        function openConfirm(title, message, callback) {
-            document.getElementById('confirmTitle').innerText = title;
-            document.getElementById('confirmMessage').innerText = message;
-            confirmCallback = callback;
-            toggleModal('confirmModal', true);
-        }
-
-        function closeConfirm() {
-            toggleModal('confirmModal', false);
-            confirmCallback = null;
-        }
-
-        function executeConfirm() {
-            if (confirmCallback) confirmCallback();
-            closeConfirm();
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            const isError = type === 'error';
-            toast.className = `px-4 py-3 rounded-2xl shadow-xl font-bold text-sm flex items-center gap-2 transform transition-all translate-y-10 opacity-0 pointer-events-auto ${isError ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'}`;
-            toast.innerHTML = `<i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-4 h-4"></i> ${message}`;
+        window.onload = () => {
+            // Inicialización del Mapa
+            map = L.map('map').setView([-9.1900, -75.0152], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            markersGroup = L.layerGroup().addTo(map);
             
-            document.getElementById('toastContainer').appendChild(toast);
-            lucide.createIcons();
-
-            // Animación de entrada
-            setTimeout(() => {
-                toast.classList.remove('translate-y-10', 'opacity-0');
-            }, 10);
-
-            // Animación de salida y eliminación
-            setTimeout(() => {
-                toast.classList.add('translate-y-10', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        // --- FUNCIONES DE NUBE (GOOGLE SHEETS) ---
-        async function loadFromCloud() {
-            if (!SCRIPT_URL) return false;
-            try {
-                const response = await fetch(SCRIPT_URL);
-                const data = await response.json();
-                if (Array.isArray(data)) expenses = data;
-                return true;
-            } catch (error) {
-                console.error("Error cargando de Sheets:", error);
-                return false;
-            }
-        }
-
-        async function saveToCloud() {
-            if (!SCRIPT_URL) return;
-            isSyncing = true;
-            renderApp(); 
-            try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(expenses),
-                    headers: { 'Content-Type': 'text/plain' } // Evita problemas de CORS de Google
-                });
-            } catch (error) {
-                console.error("Error guardando en Sheets:", error);
-                showToast('Error al sincronizar con la nube', 'error');
-            } finally {
-                isSyncing = false;
-                renderApp();
-            }
-        }
-
-        // --- LÓGICA DE ALERTA Y TENDENCIA ---
-        function getPaymentStatus(expense) {
-            const today = new Date();
-            const currDay = today.getDate();
-            const currMonth = today.getMonth();
-            const currYear = today.getFullYear();
-
-            const paidThisMonth = expense.history.some(h => {
-                if (h.month === 'Migrado') return false; // Ignorar registros de migración para las alertas del mes
-                const payDate = new Date(h.date);
-                return payDate.getMonth() === currMonth && payDate.getFullYear() === currYear;
-            });
-
-            if (paidThisMonth) return { label: 'Pagado', color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: 'check-circle-2', type: 'paid' };
-
-            const due = parseInt(expense.dueDay);
-            if (currDay > due) {
-                return { label: 'Vencido', color: 'text-red-600 bg-red-50 border-red-100 animate-pulse', icon: 'alert-circle', type: 'overdue' };
-            } else if (due - currDay <= 3) {
-                return { label: 'Pagar pronto', color: 'text-amber-600 bg-amber-50 border-amber-100', icon: 'alert-triangle', type: 'urgent' };
-            } else {
-                return { label: 'Programado', color: 'text-blue-600 bg-blue-50 border-blue-100', icon: 'clock', type: 'pending' };
-            }
-        }
-
-        function getTrendData(expense) {
-            if (!expense.history || expense.history.length === 0) {
-                return { avg: parseFloat(expense.amount), trend: null };
-            }
-
-            let currentSum = 0;
-            let currentMonths = 0;
-            
-            expense.history.forEach(h => {
-                currentSum += h.amount;
-                // Si es un dato migrado, usamos los meses que representa, sino equivale a 1 mes
-                currentMonths += (h.representedMonths || 1);
-            });
-
-            const currentAvg = currentMonths > 0 ? currentSum / currentMonths : parseFloat(expense.amount);
-
-            // --- NUEVA TENDENCIA: MES A MES (Último vs Anterior) ---
-            let currentPayment = expense.history[0].amount;
-            if (expense.history[0].month === 'Migrado') {
-                currentPayment = currentPayment / (expense.history[0].representedMonths || 1);
-            }
-
-            let previousPayment = parseFloat(expense.amount); // Si solo hay 1 pago, comparamos contra el monto base inicial
-            if (expense.history.length > 1) {
-                previousPayment = expense.history[1].amount;
-                if (expense.history[1].month === 'Migrado') {
-                    previousPayment = previousPayment / (expense.history[1].representedMonths || 1);
-                }
-            }
-
-            const diff = currentPayment - previousPayment;
-            let trend = null;
-
-            if (previousPayment > 0) {
-                const percent = (diff / previousPayment) * 100;
-                if (diff > 0.5) { 
-                    trend = { icon: 'trending-up', color: 'text-red-600 bg-red-50', text: `+${percent.toFixed(1)}% mes ant.` };
-                } else if (diff < -0.5) {
-                    trend = { icon: 'trending-down', color: 'text-emerald-600 bg-emerald-50', text: `${percent.toFixed(1)}% mes ant.` };
-                } else {
-                    trend = { icon: 'minus', color: 'text-slate-500 bg-slate-50', text: 'Estable' };
-                }
-            }
-            
-            return { avg: currentAvg, trend: trend };
-        }
-
-        // --- RENDERIZADO ---
-        function renderApp() {
-            const grid = document.getElementById('expensesGrid');
-            const stats = document.getElementById('statsPanel');
-            const syncInd = document.getElementById('syncIndicator');
-            
-            if (syncInd) {
-                syncInd.classList.toggle('hidden', !isSyncing);
-            }
-
-            let total = 0;
-            let statusCounts = { overdue: 0, urgent: 0, paid: 0, pending: 0 };
-
-            grid.innerHTML = '';
-            
-            expenses.forEach(exp => {
-                const status = getPaymentStatus(exp);
-                const { avg, trend } = getTrendData(exp);
-                statusCounts[status.type]++;
-                total += avg;
-
-                let trendHtml = '';
-                if (trend) {
-                    trendHtml = `
-                    <div class="flex justify-end mt-1">
-                        <span class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold ${trend.color}">
-                            <i data-lucide="${trend.icon}" class="w-3 h-3"></i>
-                            ${trend.text}
-                        </span>
-                    </div>`;
-                }
-
-                const card = `
-                <div class="bg-white rounded-3xl shadow-sm border-2 overflow-hidden transition-all group ${status.type === 'overdue' ? 'border-red-100 bg-red-50/10' : 'border-transparent'}">
-                    <div class="p-6">
-                        <div class="flex justify-end mb-2">
-                            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${status.color}">
-                                <i data-lucide="${status.icon}" class="w-3 h-3"></i>
-                                ${status.label}
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-start mb-6">
-                            <div class="flex items-center gap-4">
-                                <div class="bg-slate-50 p-3 rounded-2xl group-hover:bg-white group-hover:shadow-sm transition-all text-slate-600">
-                                    <i data-lucide="${exp.icon === 'plus-circle' ? 'help-circle' : exp.icon}"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-extrabold text-lg text-slate-800">${exp.name}</h3>
-                                    <div class="flex items-center gap-1.5 text-slate-500 text-xs mt-1">
-                                        <i data-lucide="calendar" class="w-3 h-3"></i>
-                                        <span>Día ${exp.dueDay}</span>
-                                        <span class="mx-1">•</span>
-                                        <span class="font-bold text-indigo-600 uppercase text-[10px]">Mes ${exp.paidMonths}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[9px] font-black text-slate-400 uppercase leading-none mb-1 tracking-widest">Promedio</p>
-                                <span class="text-xl font-black text-slate-900 block">S/ ${avg.toFixed(2)}</span>
-                                ${trendHtml}
-                                <div class="flex justify-end gap-1 mt-2">
-                                    <button onclick="openEdit(${exp.id})" class="text-slate-300 hover:text-indigo-500 p-1 transition-colors"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                                    <button onclick="deleteExpense(${exp.id})" class="text-slate-300 hover:text-red-500 p-1 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="flex flex-col gap-2 pt-2">
-                                <button onclick="openPayment(${exp.id})" ${status.type === 'paid' ? 'disabled' : ''} class="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all ${status.type === 'paid' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'}">
-                                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                    ${status.type === 'paid' ? 'Pagado este mes' : 'Registrar Pago'}
-                                </button>
-                                <button onclick="openHistory(${exp.id})" class="w-full bg-white hover:bg-slate-50 text-slate-600 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200">
-                                    <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
-                                    Ver Historial de Pagos
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-                grid.innerHTML += card;
-            });
-
-            stats.innerHTML = `
-                <div class="md:col-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl shadow-lg text-white flex flex-col justify-center">
-                    <p class="opacity-80 text-[10px] font-black uppercase tracking-widest mb-1">Total Mensual</p>
-                    <p class="text-4xl font-black">S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-3">
-                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Estados</p>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center text-xs font-bold text-red-500"><span>Vencidos</span><span class="bg-red-50 px-2 py-0.5 rounded-full">${statusCounts.overdue}</span></div>
-                        <div class="flex justify-between items-center text-xs font-bold text-amber-500"><span>Pronto</span><span class="bg-amber-50 px-2 py-0.5 rounded-full">${statusCounts.urgent}</span></div>
-                        <div class="flex justify-between items-center text-xs font-bold text-emerald-500"><span>Pagados</span><span class="bg-emerald-50 px-2 py-0.5 rounded-full">${statusCounts.paid}</span></div>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center text-center">
-                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Servicios</p>
-                    <p class="text-3xl font-black text-indigo-600">${expenses.length}</p>
-                </div>
-            `;
-
-            lucide.createIcons();
-        }
-
-        // --- ACCIONES ---
-        function toggleModal(id, show) {
-            const modal = document.getElementById(id);
-            modal.classList.toggle('hidden', !show);
-            document.body.classList.toggle('modal-active', show);
-        }
-
-        function deleteExpense(id) {
-            openConfirm('Eliminar Servicio', '¿Seguro que quieres eliminar este servicio por completo? Se perderá todo su historial.', () => {
-                expenses = expenses.filter(e => e.id !== id);
-                renderApp();
-                saveToCloud();
-                showToast('Servicio eliminado correctamente');
-            });
-        }
-
-        // Nuevo Servicio
-        document.getElementById('newExpenseForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const historicalTotal = parseFloat(document.getElementById('historicalTotal').value) || 0;
-            const initialMonths = parseInt(document.getElementById('paidMonths').value) || 0;
-            const historyData = [];
-            
-            if (historicalTotal > 0) {
-                historyData.push({
-                    month: 'Migrado',
-                    date: new Date().toISOString().split('T')[0],
-                    amount: historicalTotal,
-                    bank: 'Datos de Excel',
-                    representedMonths: initialMonths > 0 ? initialMonths : 1
-                });
-            }
-
-            const newExp = {
-                id: Date.now(),
-                name: document.getElementById('name').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                dueDay: document.getElementById('dueDay').value,
-                icon: document.getElementById('icon').value,
-                paidMonths: parseInt(document.getElementById('paidMonths').value) || 0,
-                history: historyData
-            };
-            expenses.push(newExp);
-            toggleModal('newExpenseModal', false);
-            document.getElementById('newExpenseForm').reset();
-            renderApp();
-            saveToCloud();
-            showToast('Nuevo servicio agregado');
-        });
-
-        // Abrir y Guardar Edición
-        function openEdit(id) {
-            const exp = expenses.find(e => e.id === id);
-            document.getElementById('editId').value = exp.id;
-            document.getElementById('editName').value = exp.name;
-            document.getElementById('editAmount').value = exp.amount;
-            document.getElementById('editDueDay').value = exp.dueDay;
-            document.getElementById('editIcon').value = exp.icon;
-            document.getElementById('editPaidMonths').value = exp.paidMonths;
-            toggleModal('editExpenseModal', true);
-        }
-
-        document.getElementById('editExpenseForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const id = parseInt(document.getElementById('editId').value);
-            const exp = expenses.find(e => e.id === id);
-            
-            exp.name = document.getElementById('editName').value;
-            exp.amount = parseFloat(document.getElementById('editAmount').value);
-            exp.dueDay = document.getElementById('editDueDay').value;
-            exp.icon = document.getElementById('editIcon').value;
-            exp.paidMonths = parseInt(document.getElementById('editPaidMonths').value);
-            
-            toggleModal('editExpenseModal', false);
-            renderApp();
-            saveToCloud();
-            showToast('Servicio actualizado correctamente');
-        });
-
-        // Abrir Registro Pago
-        function openPayment(id) {
-            selectedExpenseId = id;
-            const exp = expenses.find(e => e.id === id);
-            
-            const { avg } = getTrendData(exp);
-
-            document.getElementById('paymentSubTitle').innerText = `${exp.name} - Mes ${exp.paidMonths}`;
-            document.getElementById('payAmount').value = avg.toFixed(2);
-            document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('payBank').value = '';
-            toggleModal('paymentModal', true);
-        }
-
-        // Confirmar Pago
-        document.getElementById('paymentForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const exp = expenses.find(e => e.id === selectedExpenseId);
-            const entry = {
-                month: exp.paidMonths,
-                date: document.getElementById('payDate').value,
-                amount: parseFloat(document.getElementById('payAmount').value),
-                bank: document.getElementById('payBank').value
-            };
-            exp.history.unshift(entry);
-            exp.paidMonths++;
-            toggleModal('paymentModal', false);
-            renderApp();
-            saveToCloud();
-            showToast('Pago registrado con éxito');
-        });
-
-        // Eliminar Pago del Historial
-        function deletePayment(expenseId, historyIndex) {
-            openConfirm('Eliminar Pago', '¿Seguro que quieres eliminar este registro de pago de tu historial?', () => {
-                const exp = expenses.find(e => e.id === expenseId);
-                const payment = exp.history[historyIndex];
-
-                // Si no es un dato migrado, retrocedemos el contador de meses
-                if (payment.month !== 'Migrado' && exp.paidMonths > 0) {
-                    exp.paidMonths--;
-                }
-
-                // Eliminamos el registro
-                exp.history.splice(historyIndex, 1);
-                
-                renderApp();
-                saveToCloud();
-                showToast('Registro de pago eliminado');
-                
-                // Refrescamos o cerramos el modal
-                if (exp.history.length === 0) {
-                    toggleModal('historyModal', false);
-                } else {
-                    openHistory(expenseId);
+            // Listener automático: al pegar texto, procesa si parece un JSON
+            document.getElementById('inputJson').addEventListener('input', function() {
+                if (this.value.trim().length > 20) {
+                    procesarJSON();
                 }
             });
-        }
-
-        // Historial
-        function openHistory(id) {
-            const exp = expenses.find(e => e.id === id);
-            const list = document.getElementById('historyList');
-            document.getElementById('historyTitle').innerText = `Historial: ${exp.name}`;
-            list.innerHTML = '';
-
-            if (exp.history.length === 0) {
-                list.innerHTML = '<div class="text-center py-10 text-slate-400 italic">No hay historial todavía.</div>';
-            } else {
-                exp.history.forEach((h, index) => {
-                    list.innerHTML += `
-                    <div class="flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 relative">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-indigo-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-sm">${h.month}</div>
-                                <div>
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Fecha</p>
-                                    <p class="text-sm font-bold text-slate-700">${h.date.split('-').reverse().join('/')}</p>
-                                </div>
-                            </div>
-                            <div class="text-right flex items-center gap-3">
-                                <div>
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Monto</p>
-                                    <p class="text-sm font-black text-emerald-600">S/ ${h.amount.toFixed(2)}</p>
-                                </div>
-                                <button onclick="deletePayment(${exp.id}, ${index})" class="text-slate-300 hover:text-red-500 p-2 bg-white rounded-full shadow-sm transition-colors border border-slate-100" title="Eliminar pago">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="pt-2 border-t border-slate-200/50 flex items-center gap-2">
-                            <i data-lucide="building-2" class="w-3 h-3 text-slate-400"></i>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Medio:</span>
-                            <span class="text-[11px] font-bold text-indigo-600">${h.bank || '---'}</span>
-                        </div>
-                    </div>`;
-                });
-            }
-            toggleModal('historyModal', true);
-            lucide.createIcons();
-        }
-
-        // Inicio
-        window.onload = async () => {
-            if (SCRIPT_URL) {
-                document.getElementById('expensesGrid').innerHTML = '<div class="col-span-full py-20 text-center"><i data-lucide="refresh-cw" class="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4"></i><p class="text-slate-500 font-bold tracking-widest uppercase text-sm">Conectando con Google Sheets...</p></div>';
-                lucide.createIcons();
-                const loaded = await loadFromCloud();
-                if (!loaded && expenses.length === 0) {
-                     expenses = [ { id: 1, name: 'Servicio de Ejemplo', dueDay: 15, icon: 'zap', amount: 100.00, paidMonths: 1, history: [] } ];
-                }
-            } else {
-                // Estado inicial local de prueba (Muestra esto si aún no configuras SCRIPT_URL)
-                expenses = [
-                    { id: 1, name: 'Luz (Enel)', dueDay: 15, icon: 'zap', amount: 120.50, paidMonths: 3, history: [
-                        { month: 2, date: '2026-02-15', amount: 115.00, bank: 'BBVA' },
-                        { month: 1, date: '2026-01-15', amount: 110.00, bank: 'BCP' }
-                    ]},
-                    { id: 2, name: 'Agua (Sedapal)', dueDay: 10, icon: 'droplets', amount: 45.00, paidMonths: 2, history: [
-                        { month: 1, date: '2026-01-10', amount: 50.00, bank: 'Interbank' }
-                    ] }
-                ];
-            }
-            renderApp();
         };
+
+        // Función de utilidad: Mostrar alertas temporales
+        function mostrarMsg(id, mensaje) {
+            const div = document.getElementById(id);
+            div.textContent = mensaje;
+            div.classList.remove('hidden');
+            // Animar opacidad podría añadirse aquí para mejor UX
+            setTimeout(() => div.classList.add('hidden'), 5000);
+        }
+
+        // Función de seguridad: Prevenir ataques XSS inyectados desde Excel malicioso
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>'"]/g, match => {
+                const escape = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return escape[match];
+            });
+        }
+
+        // Normalización para cruce (quita tildes y pasa a minúsculas)
+        function normalizarTexto(txt) {
+            if (!txt) return "";
+            return String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        }
+
+        // Convierte palabras a formato Título (Capitalize)
+        function aLetraCapital(texto) {
+            if (!texto) return "";
+            return String(texto).replace(/["\\]/g, "").trim().toLowerCase().split(' ').map(palabra => {
+                return palabra ? palabra.charAt(0).toUpperCase() + palabra.slice(1) : "";
+            }).join(' ');
+        }
+
+        // Reinicio Total de la Interfaz y Variables
+        function limpiarEntrada() {
+            // Limpiar Textareas
+            document.getElementById('inputJson').value = '';
+            document.getElementById('outputJson').classList.add('hidden');
+            document.getElementById('outputJson').value = '';
+            document.getElementById('outputJsonDestinos').classList.add('hidden');
+            document.getElementById('outputJsonDestinos').value = '';
+            
+            // Limpiar File Upload
+            document.getElementById('fileUpload').value = '';
+            
+            // Limpiar Variables y Estado
+            agenciasGlobales = [];
+            jsonDestinosFinal = [];
+            
+            // Reiniciar Contadores y UI
+            document.getElementById('contadorAgencias').classList.add('hidden');
+            document.getElementById('contadorAgencias').textContent = '0';
+            document.getElementById('resultadosCruce').classList.add('hidden');
+            document.getElementById('exportAction').classList.add('hidden');
+            document.getElementById('mapSection').classList.add('hidden');
+            document.getElementById('checkboxContainer').innerHTML = '';
+            
+            // Limpiar Mapa
+            if (markersGroup) markersGroup.clearLayers();
+            map.setView([-9.1900, -75.0152], 5);
+            
+            mostrarMsg('successMsg', "Entorno limpiado correctamente.");
+        }
+
+        // PASO 1: Lógica principal para parsear JSON crudo
+        function procesarJSON() {
+            const inputRaw = document.getElementById('inputJson').value.trim();
+            if (!inputRaw) { mostrarMsg('errorMsg', "Por favor, pega el JSON primero."); return; }
+            
+            try {
+                const parsed = JSON.parse(inputRaw);
+                let arrayAgencias = parsed.Map ? parsed.Map : (Array.isArray(parsed) ? parsed : []);
+                
+                // Procesar datos para tener propiedades limpias (Global para uso interno y cruce)
+                agenciasGlobales = arrayAgencias.map(ag => ({
+                    ID: ag.ter_id,
+                    Nombre_Completo: String(ag.nombre || "").trim(),
+                    Nombre_Corto: String(ag.lugar_over || ag.lugar || "").trim(),
+                    Direccion: String(ag.direccion || "").trim(),
+                    Latitud: parseFloat(ag.latitud) || 0,
+                    Longitud: parseFloat(ag.longitud) || 0,
+                    norm_corto: normalizarTexto(ag.lugar_over || ag.lugar) // Usado SOLO para cruzar
+                }));
+
+                // Actualizar contador visual
+                const contador = document.getElementById('contadorAgencias');
+                contador.textContent = agenciasGlobales.length + ' agencias procesadas';
+                contador.classList.remove('hidden');
+
+                // Mostrar JSON procesado internamente con TODOS los campos (menos el norm_corto que es interno)
+                const jsonMostrar = agenciasGlobales.map(ag => {
+                    const { norm_corto, ...resto } = ag;
+                    return resto;
+                });
+                
+                const output = document.getElementById('outputJson');
+                output.value = JSON.stringify(jsonMostrar, null, 2);
+                output.classList.remove('hidden'); 
+
+                mostrarMsg('successMsg', "JSON procesado correctamente. Listo para el cruce masivo.");
+            } catch (e) { 
+                mostrarMsg('errorMsg', "Error: El formato JSON pegado no es válido."); 
+            }
+        }
+
+        // PASO 2: Leer el archivo local sin backend usando SheetJS
+        function procesarExcel() {
+            if (agenciasGlobales.length === 0) { 
+                mostrarMsg('errorMsg', "Procesa el JSON de agencias en el Paso 1 antes de cruzar datos."); 
+                return; 
+            }
+            
+            const fileInput = document.getElementById('fileUpload');
+            if (fileInput.files.length === 0) { 
+                mostrarMsg('errorMsg', "Selecciona un archivo Excel/CSV primero."); 
+                return; 
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    const sheetName = workbook.SheetNames.includes('Hoja2') ? 'Hoja2' : workbook.SheetNames[0];
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {header: 1, defval: ""});
+                    cruzarDatosYGenerarTabla(rows);
+                } catch (err) {
+                    mostrarMsg('errorMsg', "Ocurrió un error al intentar leer el archivo Excel.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Lógica Core: Cruza Set del Excel con Array del JSON
+        function cruzarDatosYGenerarTabla(rows) {
+            let agenciasUnicas = new Map();
+            // Identificar qué es Origen y qué Destino basado en Columnas 1 y 2
+            rows.forEach((row, i) => {
+                if(i === 0) return; // Saltar header
+                const o = String(row[1]).trim();
+                const d = String(row[2]).trim();
+                if(o) { if(!agenciasUnicas.has(o)) agenciasUnicas.set(o, new Set()); agenciasUnicas.get(o).add('Origen'); }
+                if(d) { if(!agenciasUnicas.has(d)) agenciasUnicas.set(d, new Set()); agenciasUnicas.get(d).add('Destino'); }
+            });
+
+            // Cruzar con normalizarTexto
+            let resultados = Array.from(agenciasUnicas.entries()).map(([nombre, tiposSet]) => {
+                const match = agenciasGlobales.find(ag => ag.norm_corto === normalizarTexto(nombre));
+                
+                // Normalizar tipos para contarlos y ordenarlos fácilmente (siempre será "Destino", "Origen" o "Destino y Origen")
+                let tiposArr = Array.from(tiposSet).sort();
+                let tiposStr = tiposArr.join(' y ');
+
+                return { nombre, tipos: tiposStr, match };
+            });
+
+            // Orden de prioridad para la tabla: Destino (1), Origen (2), Ambos (3)
+            const ordenTipo = { 'Destino': 1, 'Origen': 2, 'Destino y Origen': 3 };
+
+            const render = (arr, tbodyId) => {
+                const tbody = document.getElementById(tbodyId);
+                tbody.innerHTML = '';
+                
+                // Ordenamiento: Primero por Tipo (usando el peso asignado), luego por Nombre (Alfabético)
+                arr.sort((a, b) => {
+                    let pesoA = ordenTipo[a.tipos] || 4;
+                    let pesoB = ordenTipo[b.tipos] || 4;
+                    if (pesoA !== pesoB) return pesoA - pesoB;
+                    return a.nombre.localeCompare(b.nombre);
+                }).forEach(item => {
+                    const tr = document.createElement('tr');
+                    // Uso escapeHTML() para seguridad
+                    tr.innerHTML = `
+                        <td class="px-4 py-2 font-medium text-slate-700">${escapeHTML(item.nombre)}</td>
+                        <td class="px-4 py-2 text-slate-500">${escapeHTML(item.tipos)}</td>
+                        ${item.match ? `<td class="px-4 py-2 text-emerald-600 font-semibold">${escapeHTML(item.match.Nombre_Completo)}</td>` : '<td class="px-4 py-2 text-red-600 font-semibold italic">No encontrado</td>'}
+                    `;
+                    tbody.appendChild(tr);
+                });
+            };
+
+            const cruzaron = resultados.filter(r => r.match);
+            const noCruzaron = resultados.filter(r => !r.match);
+            
+            // Contadores de Tipos
+            let cDestino = 0, cOrigen = 0, cAmbos = 0;
+            cruzaron.forEach(r => {
+                if (r.tipos === 'Destino') cDestino++;
+                else if (r.tipos === 'Origen') cOrigen++;
+                else cAmbos++;
+            });
+            
+            render(cruzaron, 'tbodyMatch');
+            render(noCruzaron, 'tbodyNoMatch');
+            
+            // Actualizar Interfaz
+            document.getElementById('resultadosCruce').classList.remove('hidden');
+            document.getElementById('containerNoMatch').classList.toggle('hidden', noCruzaron.length === 0);
+            document.getElementById('containerMatch').classList.toggle('hidden', cruzaron.length === 0);
+            document.getElementById('exportAction').classList.remove('hidden');
+            document.getElementById('countNoMatch').textContent = noCruzaron.length;
+            document.getElementById('countMatch').textContent = cruzaron.length;
+            
+            // Actualizar Contadores Específicos
+            document.getElementById('countDestino').textContent = cDestino;
+            document.getElementById('countOrigen').textContent = cOrigen;
+            document.getElementById('countAmbos').textContent = cAmbos;
+
+            // Crear JSON Destinos Final con la estructura deseada, incluyendo a TODOS (Destino y Origen)
+            jsonDestinosFinal = cruzaron.map(r => ({
+                ID: r.match.ID,
+                Agencia: aLetraCapital(r.match.Nombre_Completo),
+                Nombre_Corto: aLetraCapital(r.match.Nombre_Corto),
+                Direccion: aLetraCapital(r.match.Direccion),
+                Latitud: r.match.Latitud,
+                Longitud: r.match.Longitud,
+                Tipo: r.tipos // Agregamos el Tipo dinámicamente
+            }));
+            
+            // Ordenar en orden ascendente (A-Z) por nombre de Agencia
+            jsonDestinosFinal.sort((a, b) => a.Agencia.localeCompare(b.Agencia));
+
+            // Generar los checkboxes dinámicamente según las llaves
+            if (jsonDestinosFinal.length > 0) {
+                renderizarCheckboxes(Object.keys(jsonDestinosFinal[0]));
+            } else {
+                document.getElementById('checkboxContainer').innerHTML = '<span class="text-slate-500 italic">No hay destinos procesados para exportar.</span>';
+            }
+
+            // Actualizar el mapa
+            if (jsonDestinosFinal.length > 0) {
+                document.getElementById('mapSection').classList.remove('hidden');
+                // Timeout necesario para que Leaflet reconozca el nuevo tamaño del contenedor que estaba oculto
+                setTimeout(() => {
+                    map.invalidateSize();
+                    actualizarFiltros(); // Esto dibujará el mapa y actualizará el JSON basándose en los checks
+                }, 150);
+            } else {
+                document.getElementById('mapSection').classList.add('hidden');
+            }
+            
+            if(noCruzaron.length > 0) {
+                mostrarMsg('errorMsg', "Atención: Algunas agencias del Excel no cruzaron con el JSON base.");
+            } else {
+                mostrarMsg('successMsg', "¡Cruce exitoso! Mapa y tabla generados al 100%.");
+            }
+        }
+
+        // Generador dinámico de Checkboxes
+        function renderizarCheckboxes(keys) {
+            const container = document.getElementById('checkboxContainer');
+            container.innerHTML = ''; // Limpiar anteriores
+            
+            keys.forEach(key => {
+                const label = document.createElement('label');
+                label.className = "flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors";
+                
+                // Formateamos la llave ("Nombre_Corto" -> "Nombre Corto") para la vista
+                const labelText = key.replace(/_/g, ' '); 
+                
+                label.innerHTML = `
+                    <input type="checkbox" value="${key}" checked class="campo-exportar w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer" onchange="actualizarVistaJSON()"> 
+                    ${labelText}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        // Filtra los datos según los Tipos seleccionados (Destino, Origen, Ambos)
+        function obtenerDatosFiltrados() {
+            const tiposCheckboxes = document.querySelectorAll('.filtro-tipo:checked');
+            const tiposActivos = Array.from(tiposCheckboxes).map(chk => chk.value);
+            return jsonDestinosFinal.filter(item => tiposActivos.includes(item.Tipo));
+        }
+
+        // Extrae el objeto basándose en los Tipos seleccionados y luego en los Campos seleccionados
+        function obtenerJSONExportable() {
+            const datosFiltrados = obtenerDatosFiltrados();
+            const checkboxes = document.querySelectorAll('.campo-exportar:checked');
+            const camposActivos = Array.from(checkboxes).map(chk => chk.value);
+
+            return datosFiltrados.map(item => {
+                let obj = {};
+                camposActivos.forEach(campo => {
+                    if(item[campo] !== undefined) {
+                        obj[campo] = item[campo];
+                    }
+                });
+                return obj;
+            });
+        }
+
+        // Se ejecuta cuando se cambia un filtro de Tipo (actualiza mapa y JSON)
+        function actualizarFiltros() {
+            const datosFiltrados = obtenerDatosFiltrados();
+            dibujarEnMapa(datosFiltrados, 'Agencia', 'Direccion', 'Latitud', 'Longitud');
+            actualizarVistaJSON();
+        }
+
+        // Actualización en tiempo real del Textarea si cambias un checkbox de campo (solo JSON, no mapa)
+        function actualizarVistaJSON() {
+            const out = document.getElementById('outputJsonDestinos');
+            if (!out.classList.contains('hidden')) {
+                out.value = JSON.stringify(obtenerJSONExportable(), null, 2);
+            }
+        }
+
+        function visualizarJSONDestinos() {
+            const out = document.getElementById('outputJsonDestinos');
+            if (out.classList.contains('hidden')) {
+                out.value = JSON.stringify(obtenerJSONExportable(), null, 2);
+                out.classList.remove('hidden');
+            } else {
+                out.classList.add('hidden');
+            }
+        }
+
+        function descargarJSONDestinos() {
+            const datosFinales = obtenerJSONExportable();
+            if (datosFinales.length === 0) {
+                mostrarMsg('errorMsg', "El JSON está vacío. Marca al menos un campo.");
+                return;
+            }
+            const blob = new Blob([JSON.stringify(datosFinales, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; 
+            a.download = "destinos_masivos.json"; 
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Portapapeles mejorado (API Moderna + Fallback)
+        async function copiarJSONDestinos() {
+            const datosFinales = obtenerJSONExportable();
+            if (datosFinales.length === 0) {
+                mostrarMsg('errorMsg', "No hay datos para copiar. Marca algún campo.");
+                return;
+            }
+            
+            const texto = JSON.stringify(datosFinales, null, 2);
+            
+            // Intentar usar API Clipboard moderna (requiere HTTPS / localhost)
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(texto);
+                    mostrarMsg('successMsg', "¡JSON copiado al portapapeles!");
+                    return;
+                } catch (err) {
+                    console.warn("Fallo Clipboard API, usando fallback...");
+                }
+            }
+            
+            // Fallback (Método Tradicional Document.execCommand)
+            const textArea = document.createElement("textarea");
+            textArea.value = texto;
+            textArea.style.position = "fixed";
+            textArea.style.top = "-999999px"; 
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                mostrarMsg('successMsg', "¡JSON copiado al portapapeles!");
+            } catch (err) {
+                mostrarMsg('errorMsg', "Error al intentar copiar el JSON en tu navegador.");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function dibujarEnMapa(datos, keyNombre, keyDir, keyLat, keyLng) {
+            markersGroup.clearLayers();
+            let bounds = [];
+            datos.forEach(item => {
+                const lat = parseFloat(item[keyLat]);
+                const lng = parseFloat(item[keyLng]);
+                if (lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng)) {
+                    // Prevenir inyecciones en los Popups de Leaflet usando escapeHTML
+                    const nombreHTML = escapeHTML(item[keyNombre]);
+                    const dirHTML = escapeHTML(item[keyDir]);
+                    
+                    const marker = L.marker([lat, lng])
+                        .bindPopup(`<b>${nombreHTML}</b><br><span class="text-xs text-slate-600">${dirHTML}</span>`);
+                    markersGroup.addLayer(marker);
+                    bounds.push([lat, lng]);
+                }
+            });
+
+            // Ajustar cámara para que quepan todos los puntos
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
     </script>
 </body>
 </html>
